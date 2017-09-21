@@ -42,6 +42,7 @@ static AIRMapUrlTile* airMapUrlTile;
 
 // RHOM START
 @implementation AIRMapManager {
+    BOOL didCallOnMapReady;
     CLLocationManager *_locationManager;
 }
 // RHOM STOP
@@ -388,8 +389,6 @@ RCT_EXPORT_METHOD(cacheTileIds:(nonnull NSNumber *)reactTag
 
     callback(@[[NSNull null]]);
 }
-
-// RHOM STOP
 
 RCT_EXPORT_METHOD(takeSnapshot:(nonnull NSNumber *)reactTag
         width:(nonnull NSNumber *)width

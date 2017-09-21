@@ -55,7 +55,6 @@
     self.tileOverlay = [[AIRMapCachedTileOverlay alloc] initWithURLTemplate:self.urlTemplate];
     self.tileOverlay.tileSize = CGSizeMake(512.0f, 512.0f);
     // RHOM STOP
-
     self.tileOverlay.canReplaceMapContent = YES;
 
     if(self.minimumZ) {
