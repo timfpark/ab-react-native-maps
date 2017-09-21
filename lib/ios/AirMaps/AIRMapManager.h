@@ -15,6 +15,11 @@
 
 @interface AIRMapManager : RCTViewManager
 
+/* RHOM START */
+
+@property (nonatomic, strong) UIImageView* headingImageView;
+
+/* RHOM STOP */
 
 - (void)setCenterCoordinate:(CLLocationCoordinate2D)centerCoordinate
     zoomLevel:(double)zoomLevel

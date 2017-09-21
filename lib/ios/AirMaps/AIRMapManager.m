@@ -32,13 +32,20 @@
 
 static NSString *const RCTMapViewKey = @"MapView";
 
+//RHOM START
+static AIRMapUrlTile* airMapUrlTile;
 
-@interface AIRMapManager() <MKMapViewDelegate>
+@interface AIRMapManager() <MKMapViewDelegate, CLLocationManagerDelegate>
+//RHOM STOP
 
 @end
 
-@implementation AIRMapManager
-  
+// RHOM START
+@implementation AIRMapManager {
+    CLLocationManager *_locationManager;
+}
+// RHOM STOP
+
 RCT_EXPORT_MODULE()
 
 - (UIView *)view
@@ -304,6 +311,86 @@ RCT_EXPORT_METHOD(fitToCoordinates:(nonnull NSNumber *)reactTag
         }
     }];
 }
+
+// RHOM START
+
+- (void)addHeadingView:(MKAnnotationView*)annotationView {
+    if (self.headingImageView == nil) {
+        _locationManager = [CLLocationManager new];
+        if ([_locationManager respondsToSelector:@selector(requestWhenInUseAuthorization)]) {
+            [_locationManager requestWhenInUseAuthorization];
+        }
+
+        _locationManager.delegate = self;
+        [_locationManager startUpdatingHeading];
+
+        UIImage* headingImage = [UIImage imageNamed:@"heading.png"];
+        self.headingImageView = [[UIImageView alloc] initWithImage: headingImage];
+
+        NSLog(@"annotation view height: %f", annotationView.frame.size.height);
+        NSLog(@"annotation view width: %f", annotationView.frame.size.width);
+        NSLog(@"heading image height: %f", headingImage.size.height);
+        NSLog(@"heading image width: %f",headingImage.size.width);
+
+        self.headingImageView.frame = CGRectMake(
+            (annotationView.frame.size.width - headingImage.size.width) / 2,
+            (annotationView.frame.size.height - headingImage.size.height) / 2,
+            headingImage.size.width,
+            headingImage.size.height
+        );
+        [annotationView insertSubview:self.headingImageView atIndex: 0];
+        [self.headingImageView setHidden: TRUE];
+    }
+}
+
+- (void)locationManager:(CLLocationManager *)manager didUpdateHeading:(nonnull CLHeading *)newHeading {
+    if (newHeading.headingAccuracy < 0) return;
+
+    CLLocationDirection heading = newHeading.trueHeading > 0 ? newHeading.trueHeading : newHeading.magneticHeading;
+    NSLog(@"got new heading: %f", heading);
+
+    [self.headingImageView setHidden: FALSE];
+    CGAffineTransform rotation = CGAffineTransformMakeRotation(heading / 180.0 * M_PI);
+    [self.headingImageView setTransform: rotation];
+}
+
+- (void)cacheTileId:(nonnull NSString *)tileId
+           callback:(void (^)(void))callback {
+    NSArray *tileParts = [tileId componentsSeparatedByString:@"_"];
+
+    MKTileOverlayPath path;
+    path.z = [tileParts[0] integerValue];
+    path.y = [tileParts[1] integerValue];
+    path.x = [tileParts[2] integerValue];
+
+    //NSLog(@"path: %@", path);
+
+    [airMapUrlTile.tileOverlay loadTileAtPath: path result: ^(NSData *data, NSError *error) {
+        callback();
+    }];
+}
+
+int outstandingCacheRequests = 0;
+
+RCT_EXPORT_METHOD(cacheTileIds:(nonnull NSNumber *)reactTag
+                  tileIds:(nonnull NSArray *)tileIds
+                  then:(RCTResponseSenderBlock)callback)
+{
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    dispatch_async(queue, ^(void) {
+        for (NSString* tileId in tileIds) {
+            outstandingCacheRequests += 1;
+            [self cacheTileId: tileId callback:^{
+                outstandingCacheRequests -= 1;
+                NSLog(@"outstanding: %d, just finished %@", outstandingCacheRequests, tileId);
+            }];
+            [NSThread sleepForTimeInterval:0.1f * outstandingCacheRequests];
+        }
+        callback(@[[NSNull null]]);
+    });
+}
+
+// RHOM STOP
 
 RCT_EXPORT_METHOD(takeSnapshot:(nonnull NSNumber *)reactTag
         width:(nonnull NSNumber *)width
@@ -630,6 +717,9 @@ RCT_EXPORT_METHOD(coordinateForPoint:(nonnull NSNumber *)reactTag
     } else if ([overlay isKindOfClass:[AIRMapCircle class]]) {
         return ((AIRMapCircle *)overlay).renderer;
     } else if ([overlay isKindOfClass:[AIRMapUrlTile class]]) {
+        // RHOM START
+        airMapUrlTile = (AIRMapUrlTile *)overlay;
+        // RHOM STOP
         return ((AIRMapUrlTile *)overlay).renderer;
     } else if ([overlay isKindOfClass:[AIRMapLocalTile class]]) {
         return ((AIRMapLocalTile *)overlay).renderer;

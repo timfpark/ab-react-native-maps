@@ -50,9 +50,10 @@
 - (void) createTileOverlayAndRendererIfPossible
 {
     if (!_urlTemplateSet) return;
-    self.tileOverlay = [[MKTileOverlay alloc] initWithURLTemplate:self.urlTemplate];
 
-    self.tileOverlay.canReplaceMapContent = self.shouldReplaceMapContent;
+    self.tileOverlay = [[AIRMapCachedTileOverlay alloc] initWithURLTemplate:self.urlTemplate];
+    self.tileOverlay.tileSize = CGSizeMake(512.0f, 512.0f);
+    self.tileOverlay.canReplaceMapContent = YES;
 
     if(self.minimumZ) {
         self.tileOverlay.minimumZ = self.minimumZ;
@@ -60,13 +61,14 @@
     if (self.maximumZ) {
         self.tileOverlay.maximumZ = self.maximumZ;
     }
+
     self.renderer = [[MKTileOverlayRenderer alloc] initWithTileOverlay:self.tileOverlay];
 }
 
 - (void) update
 {
     if (!_renderer) return;
-    
+
     if (_map == nil) return;
     [_map removeOverlay:self];
     [_map addOverlay:self level:MKOverlayLevelAboveLabels];

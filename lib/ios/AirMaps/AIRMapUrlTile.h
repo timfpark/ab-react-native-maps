@@ -16,11 +16,18 @@
 #import "AIRMap.h"
 #import "RCTConvert+AirMap.h"
 
+//RHOM START
+#import "AirMapCachedTileOverlay.h"
+//RHOM STOP
+
 @interface AIRMapUrlTile : MKAnnotationView <MKOverlay>
 
 @property (nonatomic, weak) AIRMap *map;
 
-@property (nonatomic, strong) MKTileOverlay *tileOverlay;
+//RHOM START
+@property (nonatomic, strong) AIRMapCachedTileOverlay *tileOverlay;
+//RHOM STOP
+
 @property (nonatomic, strong) MKTileOverlayRenderer *renderer;
 @property (nonatomic, copy) NSString *urlTemplate;
 @property NSInteger maximumZ;
