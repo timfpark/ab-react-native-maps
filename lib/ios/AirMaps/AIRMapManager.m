@@ -748,7 +748,6 @@ RCT_EXPORT_METHOD(coordinateForPoint:(nonnull NSNumber *)reactTag
 #pragma mark Annotation Stuff
 
 /* RHOM START:  Blue heading indicator */
-
 - (void)mapView:(__unused AIRMap *)mapView didAddAnnotationViews:(NSArray<MKAnnotationView *> *)renderers
 {
     MKAnnotationView* lastView = [renderers lastObject];
@@ -756,7 +755,6 @@ RCT_EXPORT_METHOD(coordinateForPoint:(nonnull NSNumber *)reactTag
         [self addHeadingView: lastView];
     }
 }
-
 /* RHOM STOP */
 
 - (void)mapView:(AIRMap *)mapView didSelectAnnotationView:(MKAnnotationView *)view
