@@ -363,6 +363,12 @@ RCT_EXPORT_METHOD(cacheTileIds:(nonnull NSNumber *)reactTag
                   tileIds:(nonnull NSArray *)tileIds
                   then:(RCTResponseSenderBlock)callback)
 {
+    // request that iOS not pause us until we've finished caching
+    cacheBackgroundTask = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
+        [[UIApplication sharedApplication] endBackgroundTask:cacheBackgroundTask];
+        cacheBackgroundTask = UIBackgroundTaskInvalid;
+    }];
+
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     dispatch_async(queue, ^(void) {
         // iterate through tileIds and check to see if we have them in cache
@@ -385,6 +391,10 @@ RCT_EXPORT_METHOD(cacheTileIds:(nonnull NSNumber *)reactTag
                 NSLog(@"ALREADY HAVE tile at %d_%d_%d", path.z, path.x, path.y);
             }
         }
+
+        NSLog(@"### CACHING FINISHED");
+        [[UIApplication sharedApplication] endBackgroundTask:cacheBackgroundTask];
+        cacheBackgroundTask = UIBackgroundTaskInvalid;
     });
 
     callback(@[[NSNull null]]);
