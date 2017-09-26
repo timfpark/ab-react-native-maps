@@ -371,11 +371,18 @@ RCT_EXPORT_METHOD(fitToCoordinates:(nonnull NSNumber *)reactTag
 }
 
 int outstandingCacheRequests = 0;
+UIBackgroundTaskIdentifier cacheBackgroundTask;
 
 RCT_EXPORT_METHOD(cacheTileIds:(nonnull NSNumber *)reactTag
                   tileIds:(nonnull NSArray *)tileIds
                   then:(RCTResponseSenderBlock)callback)
 {
+    // request that iOS not pause us until we've finished caching
+    cacheBackgroundTask = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
+        [[UIApplication sharedApplication] endBackgroundTask:cacheBackgroundTask];
+        cacheBackgroundTask = UIBackgroundTaskInvalid;
+    }];
+
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     dispatch_async(queue, ^(void) {
         for (NSString* tileId in tileIds) {
@@ -386,8 +393,13 @@ RCT_EXPORT_METHOD(cacheTileIds:(nonnull NSNumber *)reactTag
             }];
             [NSThread sleepForTimeInterval:0.1f * outstandingCacheRequests];
         }
-        callback(@[[NSNull null]]);
+
+        NSLog(@"### CACHING FINISHED");
+        [[UIApplication sharedApplication] endBackgroundTask:cacheBackgroundTask];
+        cacheBackgroundTask = UIBackgroundTaskInvalid;
     });
+
+    callback(@[[NSNull null]]);
 }
 
 // RHOM STOP
