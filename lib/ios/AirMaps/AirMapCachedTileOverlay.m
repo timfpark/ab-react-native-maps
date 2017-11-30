@@ -41,8 +41,7 @@
             else if (![isDirectory boolValue]) {
                 NSString *path = [url path];
                 NSDictionary *attributes = [fileManager attributesOfItemAtPath:path error:nil];
-
-                NSLog(@"looking at cache path %@: %f", path, [[attributes fileModificationDate] timeIntervalSinceNow]);
+                //NSLog(@"looking at cache path %@: %f", path, [[attributes fileModificationDate] timeIntervalSinceNow]);
                 if ([[attributes fileModificationDate] timeIntervalSinceNow] < kMaxCacheItemAge) {
                     NSLog(@"deleting old cache item: %@", path);
                     [fileManager removeItemAtPath:path error:&error];
@@ -52,11 +51,8 @@
     });
 }
 
-typedef void (^tilecallback)(NSData *tileData, NSError *connectionError);
-- (void)loadTileAtPath:(MKTileOverlayPath)path result:(tilecallback)result
-{
+- (void) ensureInitialized {
     NSError *error;
-
     if (!self.tileCachePath) {
         NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
         NSString *documentsDirectory = [paths objectAtIndex:0];
@@ -131,12 +127,11 @@ typedef void (^tilecallback)(NSData *tileData, NSError *connectionError);
     NSString* tileCacheFileDirectory = [NSString stringWithFormat:@"%@/%d/%d", self.tileCachePath, path.z, path.x];
     NSString* tileCacheFilePath = [NSString stringWithFormat:@"%@/%d", tileCacheFileDirectory, path.y];
 
-    if (![[NSFileManager defaultManager] fileExistsAtPath:tileCacheFilePath]) {
+    if (![self haveTileAtPath: path]) {
         NSLog(@"tile cache MISS for %d_%d_%d", path.z, path.x, path.y);
-        NSURLRequest *request = [NSURLRequest requestWithURL:[self URLForTilePath:path]];
-        [NSURLConnection sendAsynchronousRequest:request queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
-          if (result) result(data, connectionError);
-            if (!connectionError) [[NSFileManager defaultManager] createFileAtPath:tileCacheFilePath contents:data attributes:nil];
+        [self downloadTileAtPath: path result: ^(NSData *data, NSError *error) {
+            if (result) result(data, error);
+            if (!error) [[NSFileManager defaultManager] createFileAtPath:tileCacheFilePath contents:data attributes:nil];
         }];
     } else {
         NSLog(@"tile cache HIT for %d_%d_%d", path.z, path.x, path.y);
