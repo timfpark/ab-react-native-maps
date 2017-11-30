@@ -386,7 +386,7 @@ RCT_EXPORT_METHOD(cacheTileIds:(nonnull NSNumber *)reactTag
                 NSLog(@"CACHING tile at %d_%d_%d", path.z, path.x, path.y);
 
                 [airMapUrlTile.tileOverlay backgroundDownloadTileAtPath: path];
-                sleep(1);
+                usleep(500000);
             } else {
                 NSLog(@"ALREADY HAVE tile at %d_%d_%d", path.z, path.x, path.y);
             }
