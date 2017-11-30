@@ -7,11 +7,14 @@
 
 @class AIRMapCachedTileOverlay;
 
-@interface AIRMapCachedTileOverlay : MKTileOverlay
+@interface AIRMapCachedTileOverlay : MKTileOverlay <NSURLSessionDownloadDelegate, NSURLSessionTaskDelegate>
 
 @property (strong, nonatomic) NSString *tileCachePath;
+@property (strong, nonatomic) NSURLSessionConfiguration *backgroundConfiguration;
 
+- (void)backgroundDownloadTileAtPath:(MKTileOverlayPath)path;
 - (void)clearCache;
+- (BOOL)haveTileAtPath:(MKTileOverlayPath)path;
 
 @end
 

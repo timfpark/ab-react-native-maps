@@ -354,21 +354,6 @@ RCT_EXPORT_METHOD(fitToCoordinates:(nonnull NSNumber *)reactTag
     [self.headingImageView setTransform: rotation];
 }
 
-- (void)cacheTileId:(nonnull NSString *)tileId
-           callback:(void (^)(void))callback {
-    NSArray *tileParts = [tileId componentsSeparatedByString:@"_"];
-
-    MKTileOverlayPath path;
-    path.z = [tileParts[0] integerValue];
-    path.y = [tileParts[1] integerValue];
-    path.x = [tileParts[2] integerValue];
-
-    //NSLog(@"path: %@", path);
-
-    [airMapUrlTile.tileOverlay loadTileAtPath: path result: ^(NSData *data, NSError *error) {
-        callback();
-    }];
-}
 
 int outstandingCacheRequests = 0;
 UIBackgroundTaskIdentifier cacheBackgroundTask;
@@ -377,26 +362,28 @@ RCT_EXPORT_METHOD(cacheTileIds:(nonnull NSNumber *)reactTag
                   tileIds:(nonnull NSArray *)tileIds
                   then:(RCTResponseSenderBlock)callback)
 {
-    // request that iOS not pause us until we've finished caching
-    cacheBackgroundTask = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
-        [[UIApplication sharedApplication] endBackgroundTask:cacheBackgroundTask];
-        cacheBackgroundTask = UIBackgroundTaskInvalid;
-    }];
-
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     dispatch_async(queue, ^(void) {
+        // iterate through tileIds and check to see if we have them in cache
         for (NSString* tileId in tileIds) {
-            outstandingCacheRequests += 1;
-            [self cacheTileId: tileId callback:^{
-                outstandingCacheRequests -= 1;
-                NSLog(@"outstanding: %d, just finished %@", outstandingCacheRequests, tileId);
-            }];
-            [NSThread sleepForTimeInterval:0.1f * outstandingCacheRequests];
-        }
+            NSArray *tileParts = [tileId componentsSeparatedByString:@"_"];
 
-        NSLog(@"### CACHING FINISHED");
-        [[UIApplication sharedApplication] endBackgroundTask:cacheBackgroundTask];
-        cacheBackgroundTask = UIBackgroundTaskInvalid;
+            MKTileOverlayPath path;
+            path.z = [tileParts[0] integerValue];
+            path.y = [tileParts[1] integerValue];
+            path.x = [tileParts[2] integerValue];
+
+            if (![airMapUrlTile.tileOverlay haveTileAtPath: path]) {
+                // dont have tile, so kick off download of it in the background.
+
+                NSLog(@"CACHING tile at %d_%d_%d", path.z, path.x, path.y);
+
+                [airMapUrlTile.tileOverlay backgroundDownloadTileAtPath: path];
+                sleep(1);
+            } else {
+                NSLog(@"ALREADY HAVE tile at %d_%d_%d", path.z, path.x, path.y);
+            }
+        }
     });
 
     callback(@[[NSNull null]]);

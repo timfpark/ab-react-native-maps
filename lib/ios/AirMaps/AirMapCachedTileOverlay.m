@@ -9,6 +9,9 @@
 
 - (instancetype)init
 {
+    self.backgroundConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:@"io.rhom.mobile"];
+    self.backgroundConfiguration.allowsCellularAccess = YES;
+
     return [super init];
 }
 
@@ -39,7 +42,7 @@
                 NSString *path = [url path];
                 NSDictionary *attributes = [fileManager attributesOfItemAtPath:path error:nil];
 
-                NSLog(@"looking at cache path %@: %f", path, [[attributes fileModificationDate] timeIntervalSinceNow]);
+                // NSLog(@"looking at cache path %@: %f", path, [[attributes fileModificationDate] timeIntervalSinceNow]);
                 if ([[attributes fileModificationDate] timeIntervalSinceNow] < kMaxCacheItemAge) {
                     NSLog(@"deleting old cache item: %@", path);
                     [fileManager removeItemAtPath:path error:&error];
@@ -49,11 +52,8 @@
     });
 }
 
-typedef void (^tilecallback)(NSData *tileData, NSError *connectionError);
-- (void)loadTileAtPath:(MKTileOverlayPath)path result:(tilecallback)result
-{
+- (void) ensureInitialized {
     NSError *error;
-
     if (!self.tileCachePath) {
         NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
         NSString *documentsDirectory = [paths objectAtIndex:0];
@@ -64,6 +64,25 @@ typedef void (^tilecallback)(NSData *tileData, NSError *connectionError);
 
         [self clearCache];
     }
+}
+
+- (void)URLSession:(NSURLSession *)session
+      downloadTask:(NSURLSessionDownloadTask *)downloadTask
+didFinishDownloadingToURL:(NSURL *)location {
+    NSString* z = downloadTask.originalRequest.URL.pathComponents[2];
+    NSString* x = downloadTask.originalRequest.URL.pathComponents[3];
+    NSString* y = downloadTask.originalRequest.URL.pathComponents[4];
+
+    NSString* tileCacheFilePath = [NSString stringWithFormat:@"file://%@/%@/%@/%@", self.tileCachePath, z, x, y];
+
+    [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL URLWithString:tileCacheFilePath] error:nil];
+    NSLog(@"finished caching %@", downloadTask.originalRequest.URL.path);
+}
+
+- (BOOL)haveTileAtPath:(MKTileOverlayPath)path {
+    NSError *error;
+
+    [self ensureInitialized];
 
     NSString* tileCacheFileDirectory = [NSString stringWithFormat:@"%@/%d/%d", self.tileCachePath, path.z, path.x];
     if (![[NSFileManager defaultManager] fileExistsAtPath:tileCacheFileDirectory])
@@ -71,12 +90,49 @@ typedef void (^tilecallback)(NSData *tileData, NSError *connectionError);
 
     NSString* tileCacheFilePath = [NSString stringWithFormat:@"%@/%d", tileCacheFileDirectory, path.y];
 
-    if (![[NSFileManager defaultManager] fileExistsAtPath:tileCacheFilePath]) {
+    return [[NSFileManager defaultManager] fileExistsAtPath:tileCacheFilePath];
+}
+
+typedef void (^tilecallback)(NSData *tileData, NSError *connectionError);
+
+- (void)backgroundDownloadTileAtPath:(MKTileOverlayPath)path {
+    [self ensureInitialized];
+
+    NSLog([self URLForTilePath:path].absoluteString);
+    NSURLRequest *request = [NSURLRequest requestWithURL:[self URLForTilePath:path]];
+    NSURLSession *session = [NSURLSession sessionWithConfiguration:self.backgroundConfiguration delegate:self delegateQueue:nil];
+    NSURLSessionDownloadTask *task = [session downloadTaskWithRequest:request];
+
+    [task resume];
+}
+
+- (void)downloadTileAtPath:(MKTileOverlayPath)path result:(tilecallback)result
+{
+    [self ensureInitialized];
+
+    NSURLRequest *request = [NSURLRequest requestWithURL:[self URLForTilePath:path]];
+    NSURLSession *session = [NSURLSession sharedSession];
+    NSURLSessionDataTask *task = [session dataTaskWithRequest:request
+                                            completionHandler:
+                                  ^(NSData *data, NSURLResponse *response, NSError *error) {
+                                      result(data, error);
+                                  }];
+    [task resume];
+}
+
+- (void)loadTileAtPath:(MKTileOverlayPath)path result:(tilecallback)result
+{
+    [self ensureInitialized];
+
+    NSError *error;
+    NSString* tileCacheFileDirectory = [NSString stringWithFormat:@"%@/%d/%d", self.tileCachePath, path.z, path.x];
+    NSString* tileCacheFilePath = [NSString stringWithFormat:@"%@/%d", tileCacheFileDirectory, path.y];
+
+    if (![self haveTileAtPath: path]) {
         NSLog(@"tile cache MISS for %d_%d_%d", path.z, path.x, path.y);
-        NSURLRequest *request = [NSURLRequest requestWithURL:[self URLForTilePath:path]];
-        [NSURLConnection sendAsynchronousRequest:request queue:[NSOperationQueue mainQueue] completionHandler:^(NSURLResponse *response, NSData *data, NSError *connectionError) {
-          if (result) result(data, connectionError);
-            if (!connectionError) [[NSFileManager defaultManager] createFileAtPath:tileCacheFilePath contents:data attributes:nil];
+        [self downloadTileAtPath: path result: ^(NSData *data, NSError *error) {
+            if (result) result(data, error);
+            if (!error) [[NSFileManager defaultManager] createFileAtPath:tileCacheFilePath contents:data attributes:nil];
         }];
     } else {
         NSLog(@"tile cache HIT for %d_%d_%d", path.z, path.x, path.y);
