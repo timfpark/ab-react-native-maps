@@ -391,11 +391,11 @@ RCT_EXPORT_METHOD(cacheTileIds:(nonnull NSNumber *)reactTag
                 NSLog(@"ALREADY HAVE tile at %d_%d_%d", path.z, path.x, path.y);
             }
         }
-
-        NSLog(@"### CACHING FINISHED");
-        [[UIApplication sharedApplication] endBackgroundTask:cacheBackgroundTask];
-        cacheBackgroundTask = UIBackgroundTaskInvalid;
     });
+
+    NSLog(@"### CACHING FINISHED");
+    [[UIApplication sharedApplication] endBackgroundTask:cacheBackgroundTask];
+    cacheBackgroundTask = UIBackgroundTaskInvalid;
 
     callback(@[[NSNull null]]);
 }
@@ -453,7 +453,7 @@ RCT_EXPORT_METHOD(pointForCoordinate:(nonnull NSNumber *)reactTag
                                                              [coordinate[@"lng"] doubleValue]
                                                              )
                                               toPointToView:mapView];
-            
+
             resolve(@{
                       @"x": @(touchPoint.x),
                       @"y": @(touchPoint.y),
@@ -479,7 +479,7 @@ RCT_EXPORT_METHOD(coordinateForPoint:(nonnull NSNumber *)reactTag
                                                              [point[@"y"] doubleValue]
                                                              )
                                                  toCoordinateFromView:mapView];
-            
+
             resolve(@{
                       @"lat": @(coordinate.latitude),
                       @"lng": @(coordinate.longitude),
@@ -629,7 +629,7 @@ RCT_EXPORT_METHOD(coordinateForPoint:(nonnull NSNumber *)reactTag
                 }
             }
         }
-        
+
         if ([overlay isKindOfClass:[AIRMapOverlay class]]) {
             AIRMapOverlay *imageOverlay = (AIRMapOverlay*) overlay;
             if (MKMapRectContainsPoint(imageOverlay.boundingMapRect, mapPoint)) {
@@ -916,7 +916,7 @@ static int kDragCenterContext;
 - (void)mapViewWillStartRenderingMap:(AIRMap *)mapView
 {
     if (!mapView.hasStartedRendering) {
-      mapView.onMapReady(@{}); 
+      mapView.onMapReady(@{});
       mapView.hasStartedRendering = YES;
     }
     [mapView beginLoading];
